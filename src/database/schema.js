@@ -133,28 +133,21 @@ export async function cleanupOldData(db) {
     const lastClean = await db.prepare(`SELECT value FROM settings WHERE key = 'last_cleanup'`).first();
     const now = Date.now();
     const oneDay = 24 * 60 * 60 * 1000;
-    const sevenDays = 7 * oneDay;
     
     if (!lastClean || (now - parseInt(lastClean.value)) > oneDay) {
-      const cutoff = now - sevenDays;
-      const { count } = await db.prepare(`SELECT COUNT(*) as count FROM metrics_history WHERE (
+      const cutoff = now - 7 * oneDay;
+      const deleteResult = await db.prepare(`DELETE FROM metrics_history WHERE (
         (typeof(timestamp) = 'integer' AND timestamp < ?)
         OR 
         (typeof(timestamp) = 'text' AND timestamp < datetime('now', '-7 days'))
-      )`).bind(cutoff).first();
+      )`).bind(cutoff).run();
       
-      if (count > 0) {
-        await db.prepare(`DELETE FROM metrics_history WHERE (
-          (typeof(timestamp) = 'integer' AND timestamp < ?)
-          OR 
-          (typeof(timestamp) = 'text' AND timestamp < datetime('now', '-7 days'))
-        )`).bind(cutoff).run();
-        
+      if (deleteResult.meta.changes > 0) {
         await db.prepare(`
           INSERT OR REPLACE INTO settings (key, value) VALUES ('last_cleanup', ?)
         `).bind(now.toString()).run();
         
-        console.log(`[Cron] 已清理 ${count} 条7天前的旧数据`);
+        console.log(`[Cron] 已清理 ${deleteResult.meta.changes} 条7天前的旧数据`);
       }
     }
   } catch (e) {
