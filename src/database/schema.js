@@ -77,12 +77,35 @@ export async function initDatabase(db) {
 
 export async function getMetricsHistory(db, serverId, hours, columns) {
   const now = Date.now();
-  const cutoff = now - hours * 60 * 60 * 1000;
+  
+  let queryHours = hours;
+  let intervalMs;
+  
+  if (hours > 72) {
+    queryHours = 72;
+    intervalMs = 25 * 60 * 1000;
+  } else if (hours > 24) {
+    intervalMs = 25 * 60 * 1000;
+  } else if (hours >= 24) {
+    intervalMs = 15 * 60 * 1000;
+  } else if (hours >= 12) {
+    intervalMs = 10 * 60 * 1000;
+  } else if (hours >= 6) {
+    intervalMs = 5 * 60 * 1000;
+  } else if (hours <= 1) {
+    intervalMs = 1 * 60 * 1000;
+  } else {
+    intervalMs = 5 * 60 * 1000;
+  }
+
+  const cutoff = now - queryHours * 60 * 60 * 1000;
 
   console.log(
     '[History]',
     'server:', serverId,
     'hours:', hours,
+    'queryHours:', queryHours,
+    'interval:', intervalMs,
     'cutoff:', new Date(cutoff).toISOString()
   );
 
@@ -92,7 +115,8 @@ export async function getMetricsHistory(db, serverId, hours, columns) {
     WHERE server_id = ?
       AND typeof(timestamp) = 'integer'
       AND timestamp >= ?
-  `).bind(serverId, cutoff).all();
+      AND (timestamp % ?) = 0
+  `).bind(serverId, cutoff, intervalMs).all();
 
   const result = rawResult.results.map(row => ({
     ...row,
