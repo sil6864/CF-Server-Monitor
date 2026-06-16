@@ -28,6 +28,7 @@
           <button type="submit" class="login-btn">{{ loginLoading ? '⏳' : trans.login }}</button>
         </form>
       </div>
+      <Footer />
     </div>
 
     <div v-else class="container" id="admin-content">
@@ -91,9 +92,13 @@
 
           <div class="toolbar">
             <input type="text" v-model="newServerName" class="toolbar-input" :placeholder="'> ' + trans.serverName + '...'">
-            <select v-model="newServerGroup" class="toolbar-select">
-              <option v-for="group in groups" :key="group" :value="group">{{ group }}</option>
-            </select>
+            <div class="toolbar-select-wrapper">
+              <input type="text" v-model="newServerGroup" list="group-list" class="toolbar-select" :placeholder="trans.default || 'Default'">
+              <datalist id="group-list">
+                <option v-for="group in groups" :key="group" :value="group"></option>
+              </datalist>
+              <button v-if="newServerGroup" @click="newServerGroup = ''" class="toolbar-select-clear" title="Clear">✕</button>
+            </div>
             <button @click="addServer" class="btn btn-primary">+ {{ trans.addServer }}</button>
           </div>
 
@@ -713,7 +718,7 @@ const selectedServers = ref([])
 const stats = ref({ total: '-', online: 0, offline: 0, avg_cpu: 0 })
 const groups = ref(['Default'])
 const newServerName = ref('')
-const newServerGroup = ref('Default')
+const newServerGroup = ref('')
 
 const settings = ref({
   site_title: '',
@@ -1044,7 +1049,7 @@ const addServer = async () => {
     if (!name) return alert(trans.value.enterServerName)
 
     try {
-      const res = await adminApi({ action: 'add', name })
+      const res = await adminApi({ action: 'add', name, server_group: newServerGroup.value })
       const result = await res.json()
       if (res.ok) {
         alert(getMessage(result.message) || 'Success')

@@ -138,7 +138,7 @@ safe_div() {
 }
 
 get_net_bytes() {
-    awk 'NR>2{rx+=$2;tx+=$10}END{printf "%.0f %.0f\n",rx,tx}' /proc/net/dev 2>/dev/null || echo "0 0";
+    awk 'NR>2 && $1~/^(eth|en|wl)[a-z0-9]*:/{rx+=$2;tx+=$10}END{printf "%.0f %.0f\n",rx,tx}' /proc/net/dev 2>/dev/null || echo "0 0";
 }
 
 # ------------------ 月度流量追踪模块 ------------------
@@ -570,8 +570,8 @@ PROBE_EOF
                 local now_ts=$(date '+%s')
                 local rx_correction_bytes=0 tx_correction_bytes=0
                 # 获取当前网卡总流量，用于设置 RX_PREV/TX_PREV，避免 delta 计算引入历史流量
-                local current_rx=$(awk 'NR>2{rx+=$2}END{printf "%.0f", rx}' /proc/net/dev 2>/dev/null || echo 0)
-                local current_tx=$(awk 'NR>2{tx+=$10}END{printf "%.0f", tx}' /proc/net/dev 2>/dev/null || echo 0)
+                local current_rx=$(awk 'NR>2 && $1~/^(eth|en|wl)[a-z0-9]*:/{rx+=$2}END{printf "%.0f", rx}' /proc/net/dev 2>/dev/null || echo 0)
+                local current_tx=$(awk 'NR>2 && $1~/^(eth|en|wl)[a-z0-9]*:/{tx+=$10}END{printf "%.0f", tx}' /proc/net/dev 2>/dev/null || echo 0)
                 [ -n "${rx_correction}" ] && echo "${rx_correction}" | awk '{exit($1 == 0)}' 2>/dev/null && rx_correction_bytes=$(echo "${rx_correction}" | awk '{printf "%.0f", $1 * 1024 * 1024 * 1024}')
                 [ -n "${tx_correction}" ] && echo "${tx_correction}" | awk '{exit($1 == 0)}' 2>/dev/null && tx_correction_bytes=$(echo "${tx_correction}" | awk '{printf "%.0f", $1 * 1024 * 1024 * 1024}')
                 echo "${rx_correction}" | awk '{exit($1 == 0)}' 2>/dev/null && info "下行流量校正: ${rx_correction}GB (新建)"
