@@ -408,6 +408,56 @@ get_gpu_metrics() {
     gpu_info=$(system_profiler SPDisplaysDataType 2>/dev/null | grep "Chipset Model" | awk -F': ' '{print $2}' | xargs || true)
 
     if [ -n "${gpu_info}" ]; then
+        if [ "$(id -u)" = "0" ] && command -v powermetrics >/dev/null 2>&1; then
+            local pm_output=""
+            
+            pm_output=$(powermetrics --samplers=gpu_power -i1 -n1 2>/dev/null || true)
+            if [ -n "${pm_output}" ]; then
+                gpu_usage=$(echo "${pm_output}" | awk '/gpu_active|GPU active|active percentage|utilization|active%/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+%?$/) {sub(/%/,"",$i); print $i; exit}}' || true)
+            fi
+
+            if [ -z "${gpu_usage}" ] || ! echo "${gpu_usage}" | grep -qE '^[0-9]+$'; then
+                pm_output=$(powermetrics --samplers=gpu -i1 -n1 2>/dev/null || true)
+                if [ -n "${pm_output}" ]; then
+                    gpu_usage=$(echo "${pm_output}" | awk '/gpu_active|GPU active|active percentage|utilization|active%/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+%?$/) {sub(/%/,"",$i); print $i; exit}}' || true)
+                fi
+            fi
+
+            if [ -z "${gpu_usage}" ] || ! echo "${gpu_usage}" | grep -qE '^[0-9]+$'; then
+                pm_output=$(powermetrics --samplers=power -i1 -n1 2>/dev/null || true)
+                if [ -n "${pm_output}" ]; then
+                    gpu_usage=$(echo "${pm_output}" | awk '/gpu_active|GPU active|active percentage|utilization|active%/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+%?$/) {sub(/%/,"",$i); print $i; exit}}' || true)
+                fi
+            fi
+
+            if [ -z "${gpu_usage}" ] || ! echo "${gpu_usage}" | grep -qE '^[0-9]+$'; then
+                pm_output=$(powermetrics -i1 -n1 2>/dev/null || true)
+                if [ -n "${pm_output}" ]; then
+                    gpu_usage=$(echo "${pm_output}" | awk '/gpu_active|GPU active|active percentage|utilization|active%/ {for(i=1;i<=NF;i++) if($i ~ /^[0-9]+%?$/) {sub(/%/,"",$i); print $i; exit}}' || true)
+                fi
+            fi
+
+            if [ -z "${gpu_usage}" ] || ! echo "${gpu_usage}" | grep -qE '^[0-9]+$'; then
+                pm_output=$(powermetrics --samplers=gpu_power -i1 -n1 2>/dev/null || true)
+                if [ -n "${pm_output}" ]; then
+                    gpu_usage=$(echo "${pm_output}" | grep -oE '[0-9]+%' | head -1 | tr -d '%' || true)
+                fi
+            fi
+
+            if [ -z "${gpu_usage}" ] || ! echo "${gpu_usage}" | grep -qE '^[0-9]+$'; then
+                pm_output=$(powermetrics --samplers=gpu_power -i1 -n1 2>/dev/null || true)
+                if [ -n "${pm_output}" ]; then
+                    gpu_usage=$(echo "${pm_output}" | grep -oE '[0-9]+' | head -1 || true)
+                fi
+            fi
+        fi
+
+        if [ -z "${gpu_usage}" ] || ! echo "${gpu_usage}" | grep -qE '^[0-9]+$'; then
+            gpu_usage="null"
+        else
+            gpu_usage=$((10#${gpu_usage}))
+        fi
+
         printf '%s\n%s\n' "${gpu_usage}" "$(json_string_or_null "${gpu_info}")"
     else
         printf 'null\nnull\n'
@@ -632,6 +682,9 @@ while true; do
 
     CPU=$(get_cpu_stat)
 
+    GPU_METRICS=$(get_gpu_metrics)
+    GPU=$(echo "${GPU_METRICS}" | awk 'NR==1{print $1}'); GPU=${GPU:-null}
+
     BOOT_TIME=""
     boot_time_raw=$(sysctl kern.boottime 2>/dev/null || echo "")
     if [ -n "${boot_time_raw:-}" ]; then
@@ -661,14 +714,17 @@ while true; do
     LOAD_AVG=${LOAD_AVG:-"0 0 0"}
     
     PROCESSES=$(ps -e 2>/dev/null | wc -l || echo 0)
+    PROCESSES=$(printf "%d" "${PROCESSES}")
 
     TCP_CONN=""
     TCP_CONN=$(netstat -an -p tcp 2>/dev/null | grep ESTABLISHED | wc -l || echo 0)
     TCP_CONN=${TCP_CONN:-0}
+    TCP_CONN=$(printf "%d" "${TCP_CONN}")
 
     UDP_CONN=""
     UDP_CONN=$(netstat -an -p udp 2>/dev/null | grep -v "^Active" | grep -v "^Proto" | wc -l || echo 0)
     UDP_CONN=${UDP_CONN:-0}
+    UDP_CONN=$(printf "%d" "${UDP_CONN}")
 
     NET_STAT=$(get_net_bytes)
     RX_NOW=$(echo "${NET_STAT}" | awk '{print $1}'); RX_NOW=${RX_NOW:-0}
@@ -746,7 +802,7 @@ EOF
 EOF
 )
         fi
-        curl -s -o /dev/null -X POST -H "Content-Type: application/json" -d "${PAYLOAD}" -m 4 --connect-timeout 2 "${WORKER_URL}" 2>/dev/null || true
+        curl -sk -o /dev/null -X POST -H "Content-Type: application/json" -d "${PAYLOAD}" -m 4 --connect-timeout 2 "${WORKER_URL}" 2>/dev/null || true
         SAMPLES_JSON=""
         SAMPLE_COUNT=0
         LAST_REPORT_TIME="${LOOP_START_TIME}"
