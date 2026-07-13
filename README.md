@@ -519,6 +519,23 @@ Windows 系统（Python 版）
 
 > **注意**：查看1小时以上的历史数据需要登录管理员账户。
 
+### iOS Scriptable 小组件
+
+项目提供了 iOS Scriptable 小组件脚本：[scripts/ios-scriptable-widget.js](scripts/ios-scriptable-widget.js)。
+
+使用方式：
+
+1. 在 iPhone 安装 [Scriptable](https://scriptable.app/)。
+2. 将 [scripts/ios-scriptable-widget.js](https://github.com/huilang-me/CF-Server-Monitor/raw/refs/heads/main/scripts/ios-scriptable-widget.js) 内容复制到 Scriptable 新脚本中。
+3. 修改脚本顶部的 `CONFIG.baseURL` 为你的站点地址，例如 `https://status.example.com`。
+4. 添加 Scriptable 小组件，选择该脚本。
+5. 在小组件的 **Parameter** 中填写服务器 ID，例如 `955bd53e-531f-4dc8-8705-dc204000fa98`，也可以写成 `id:955bd53e-531f-4dc8-8705-dc204000fa98`。
+
+说明：
+- 如需在桌面上下滑动切换服务器，需要添加多个同尺寸 Scriptable 小组件，每个小组件填写不同的服务器 ID，然后在 iOS 桌面将它们叠成小组件堆叠。
+- 小组件会显示服务器在线状态、CPU/RAM/磁盘/流量、实时上下行速率和更新时间。
+- 脚本设置了 60 秒后刷新，但 iOS 会根据系统策略决定实际刷新时间。
+
 ### 主题切换
 
 管理后台支持自定义 CSS主题

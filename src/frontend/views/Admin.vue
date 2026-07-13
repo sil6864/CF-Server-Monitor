@@ -151,9 +151,10 @@
                   <th class="col-width-30"><input type="checkbox" id="select-all" @change="handleSelectAll" class="checkbox-accent-green"></th>
                   <th>{{ trans.hostname.toUpperCase() }}</th>
                   <th>{{ trans.group.toUpperCase() }}</th>
+                  <th>{{ trans.tags.toUpperCase() }}</th>
+                  <th>{{ trans.note.toUpperCase() }}</th>
                   <th>{{ trans.price.toUpperCase() }}</th>
                   <th>{{ trans.expirationDate.toUpperCase() }}</th>
-                  <th>{{ trans.bandwidth.toUpperCase() }}</th>
                   <th>{{ trans.traffic.toUpperCase() }}</th>
                   <th>{{ trans.status.toUpperCase() }}</th>
                   <th>{{ trans.actions.toUpperCase() }}</th>
@@ -161,7 +162,7 @@
               </thead>
               <tbody>
                 <tr v-if="servers.length === 0">
-                  <td colspan="10" class="empty-state"><span class="empty-icon">📦</span> {{ trans.noServers }}</td>
+                  <td colspan="11" class="empty-state"><span class="empty-icon">📦</span> {{ trans.noServers }}</td>
                 </tr>
                 <tr 
                   v-for="server in servers" 
@@ -181,9 +182,21 @@
                     </div>
                   </td>
                   <td><span class="group-tag">{{ server.server_group || trans.default }}</span></td>
+                  <td>
+                    <div v-if="splitTags(server.tags).length" class="tag-list admin-tag-list">
+                      <span v-for="(tag, index) in splitTags(server.tags)" :key="tag" :class="['badge', 'badge-tag', tagColorClass(index)]">{{ tag }}</span>
+                    </div>
+                    <span v-else>-</span>
+                  </td>
+                  <td>
+                    <span
+                      class="note-text"
+                      :class="{ 'note-copied': copiedNoteServerId === server.id }"
+                      @dblclick.stop="copyServerNote(server)"
+                    >{{ server.note || '-' }}</span>
+                  </td>
                   <td><span class="price-tag">{{ server.price || '-' }}</span></td>
                   <td><span class="date-text">{{ server.expire_date || '-' }}</span></td>
-                  <td><span class="spec-text">{{ server.bandwidth || '-' }}</span></td>
                   <td><span class="spec-text">{{ server.traffic_limit ? formatBytes(server.traffic_limit * 1024 * 1024 * 1024) : '-' }}</span></td>
                   <td>
                     <span :style="{ color: getStatusColor(server) }" class="font-bold">{{ getStatusText(server) }}</span>
@@ -242,95 +255,88 @@
               </div>
             </div>
 
-            <div>
-              <div class="settings-section mb-5">
-                <div class="section-title"><span>▸</span> {{ trans.displayOptions }}</div>
+            <div class="settings-section">
+              <div class="section-title"><span>▸</span> {{ trans.displayOptions }}</div>
 
-                <div class="form-row">
-                  <div class="form-group flex-1 checkbox-item">
-                    <input type="checkbox" id="cfg_is_public" v-model="settings.is_public">
-                    <label><b>{{ trans.publicAccess }}</b></label>
-                  </div>
-
-                  <div class="form-group flex-1 checkbox-item">
-                    <input type="checkbox" id="cfg_show_price" v-model="settings.show_price">
-                    <label>{{ trans.showPrice }}</label>
-                  </div>
-
-                  <div class="form-group flex-1 checkbox-item">
-                    <input type="checkbox" id="cfg_show_expire" v-model="settings.show_expire">
-                    <label>{{ trans.showExpire }}</label>
-                  </div>
+              <div class="form-row">
+                <div class="form-group flex-1 checkbox-item">
+                  <input type="checkbox" id="cfg_is_public" v-model="settings.is_public">
+                  <label><b>{{ trans.publicAccess }}</b></label>
                 </div>
 
-
-                <div class="form-row">
-                  <div class="form-group flex-1 checkbox-item">
-                    <input type="checkbox" id="cfg_show_bw" v-model="settings.show_bw">
-                    <label>{{ trans.showBw }}</label>
-                  </div>
-
-                  <div class="form-group flex-1 checkbox-item">
-                    <input type="checkbox" id="cfg_show_tf" v-model="settings.show_tf">
-                    <label>{{ trans.showTf }}</label>
-                  </div>
-
-                  <div class="form-group flex-1 checkbox-item">
-                    <input type="checkbox" id="cfg_show_time" v-model="settings.show_time">
-                    <label>{{ trans.showTime }}</label>
-                  </div>
+                <div class="form-group flex-1 checkbox-item">
+                  <input type="checkbox" id="cfg_show_price" v-model="settings.show_price">
+                  <label>{{ trans.showPrice }}</label>
                 </div>
 
-                <div class="form-group checkbox-item">
-                  <input type="checkbox" id="cfg_show_long_history" v-model="settings.show_long_history">
-                  <label>{{ trans.showLongHistory }} <span class="text-muted text-sm">{{ trans.showLongHistoryTip }}</span></label>
+                <div class="form-group flex-1 checkbox-item">
+                  <input type="checkbox" id="cfg_show_expire" v-model="settings.show_expire">
+                  <label>{{ trans.showExpire }}</label>
                 </div>
               </div>
 
-              <div class="settings-section">
-                <div class="section-title"><span>▸</span> {{ trans.notifications }}</div>
-                <div class="form-row">
-                  <div class="form-group flex-1">
-                    <label class="form-label">{{ trans.offlineAlert }}</label>
-                    <select v-model="settings.tg_notify" class="form-select">
-                      <option value="false">[OFF] {{ trans.disabled }}</option>
-                      <option value="true">[ON] {{ trans.notifyOffline }}</option>
-                    </select>
-                  </div>
 
-                  <div class="form-group flex-1">
-                    <label class="form-label">{{ trans.expireReminder }}</label>
-                    <select v-model="settings.expire_reminder" class="form-select">
-                      <option value="false">[OFF] {{ trans.disabled }}</option>
-                      <option value="true">[ON] {{ trans.notifyExpire }}</option>
-                    </select>
+              <div class="form-row">
+                <div class="form-group flex-1 checkbox-item">
+                  <input type="checkbox" id="cfg_show_tf" v-model="settings.show_tf">
+                  <label>{{ trans.showTf }}</label>
+                </div>
+
+                <div class="form-group flex-1 checkbox-item">
+                  <input type="checkbox" id="cfg_show_time" v-model="settings.show_time">
+                  <label>{{ trans.showTime }}</label>
+                </div>
+              </div>
+
+              <div class="form-group checkbox-item">
+                <input type="checkbox" id="cfg_show_long_history" v-model="settings.show_long_history">
+                <label>{{ trans.showLongHistory }} <span class="text-muted text-sm">{{ trans.showLongHistoryTip }}</span></label>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="section-title"><span>▸</span> {{ trans.notifications }}</div>
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label class="form-label">{{ trans.offlineAlert }}</label>
+                  <select v-model="settings.tg_notify" class="form-select">
+                    <option value="false">[OFF] {{ trans.disabled }}</option>
+                    <option value="true">[ON] {{ trans.notifyOffline }}</option>
+                  </select>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label class="form-label">{{ trans.expireReminder }}</label>
+                  <select v-model="settings.expire_reminder" class="form-select">
+                    <option value="false">[OFF] {{ trans.disabled }}</option>
+                    <option value="true">[ON] {{ trans.notifyExpire }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label class="form-label">{{ trans.telegramToken }}</label>
+                  <div class="password-input-wrapper">
+                    <input type="text" name="tg_bot_token" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" v-model="settings.tg_bot_token" :class="['form-input', { 'secret-input-masked': !passwordVisible.tgBotToken }]" placeholder="Bot Token or Webhook URL">
+                    <button type="button" class="password-toggle" @click="togglePassword('tgBotToken')">
+                      {{ passwordVisible.tgBotToken ? '🙈' : '👁️' }}
+                    </button>
                   </div>
                 </div>
-                <div class="form-row">
-                  <div class="form-group flex-1">
-                    <label class="form-label">{{ trans.telegramToken }}</label>
-                    <div class="password-input-wrapper">
-                      <input type="text" name="tg_bot_token" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" v-model="settings.tg_bot_token" :class="['form-input', { 'secret-input-masked': !passwordVisible.tgBotToken }]" placeholder="Bot Token or Webhook URL">
-                      <button type="button" class="password-toggle" @click="togglePassword('tgBotToken')">
-                        {{ passwordVisible.tgBotToken ? '🙈' : '👁️' }}
-                      </button>
-                    </div>
-                  </div>
 
-                  <div class="form-group flex-1">
-                    <label class="form-label">{{ trans.chatId }}</label>
-                    <div class="password-input-wrapper">
-                      <input type="text" name="tg_chat_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" v-model="settings.tg_chat_id" :class="['form-input', { 'secret-input-masked': !passwordVisible.tgChatId }]" placeholder="Optional Chat ID">
-                      <button type="button" class="password-toggle" @click="togglePassword('tgChatId')">
-                        {{ passwordVisible.tgChatId ? '🙈' : '👁️' }}
-                      </button>
-                    </div>
+                <div class="form-group flex-1">
+                  <label class="form-label">{{ trans.chatId }}</label>
+                  <div class="password-input-wrapper">
+                    <input type="text" name="tg_chat_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-bwignore="true" data-form-type="other" v-model="settings.tg_chat_id" :class="['form-input', { 'secret-input-masked': !passwordVisible.tgChatId }]" placeholder="Optional Chat ID">
+                    <button type="button" class="password-toggle" @click="togglePassword('tgChatId')">
+                      {{ passwordVisible.tgChatId ? '🙈' : '👁️' }}
+                    </button>
                   </div>
                 </div>
-                <div class="form-row">
-                  <div class="form-group flex-1">
-                    <button type="button" @click="sendTestNotification" class="btn btn-primary" :disabled="testNotificationLoading">{{ testNotificationLoading ? '⏳' : '📨' }} {{ trans.sendTestNotification }}</button>
-                  </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <button type="button" @click="sendTestNotification" class="btn btn-primary" :disabled="testNotificationLoading">{{ testNotificationLoading ? '⏳' : '📨' }} {{ trans.sendTestNotification }}</button>
                 </div>
               </div>
             </div>
@@ -574,6 +580,16 @@
               <label class="form-label">{{ trans.groupName }}</label>
               <input type="text" name="edit_server_group" autocomplete="off" v-model="editForm.server_group" class="form-input" placeholder="e.g. US VPS">
             </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label">{{ trans.tags }}</label>
+              <input type="text" name="edit_tags" autocomplete="off" v-model="editForm.tags" class="form-input" :placeholder="trans.tagsPlaceholder">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">{{ trans.note }}</label>
+            <textarea name="edit_note" autocomplete="off" v-model="editForm.note" class="form-textarea" rows="2" :placeholder="trans.notePlaceholder"></textarea>
           </div>
 
           <div class="form-row">
@@ -585,11 +601,6 @@
             <div class="form-group flex-1">
               <label class="form-label">{{ trans.expirationDate }}</label>
               <input type="date" name="edit_expire_date" autocomplete="off" v-model="editForm.expire_date" class="form-input">
-            </div>
-
-            <div class="form-group flex-1">
-              <label class="form-label">{{ trans.bandwidth }}</label>
-              <input type="text" name="edit_bandwidth" autocomplete="off" v-model="editForm.bandwidth" class="form-input" placeholder="e.g. 1Gbps">
             </div>
           </div>
 
@@ -1150,7 +1161,6 @@ const settings = ref({
   is_public: false,
   show_price: true,
   show_expire: true,
-  show_bw: true,
   show_tf: true,
   show_time: true,
   show_long_history: false,
@@ -1191,15 +1201,22 @@ const { visibility: passwordVisible, toggle: togglePassword } = usePasswordVisib
   'login', 'tgBotToken', 'tgChatId', 'turnstileSecret', 'cloudflareToken', 'jwtSecret', 'password', 'confirmPassword'
 ])
 
+const splitTags = (value) => String(value || '')
+  .split(',')
+  .map(tag => tag.trim())
+  .filter(Boolean)
+const tagColorClass = (index) => `tag-color-${index % 6}`
+
 const showEditModal = ref(false)
 const editResetDayRef = ref(null)
 const editForm = ref({
   id: '',
   name: '',
   server_group: '',
+  tags: '',
+  note: '',
   price: '',
   expire_date: '',
-  bandwidth: '',
   traffic_limit: '',
   traffic_calc_type: 'total',
   reset_day: 1,
@@ -1220,6 +1237,7 @@ const showDeleteModal = ref(false)
 const deleteServerId = ref('')
 
 const copiedServerId = ref(null)
+const copiedNoteServerId = ref(null)
 const deleteTargetOs = ref('linux')
 const uninstallCopied = ref(false)
 const saving = ref(false)
@@ -1243,7 +1261,7 @@ const currentServerName = ref('')
 const targetOs = ref('linux')
 const collectInterval = ref(0)
 const reportInterval = ref(60)
-const pingMode = ref('http')
+const pingMode = ref('tcp')
 const customCt = ref('')
 const customCu = ref('')
 const customCm = ref('')
@@ -1253,6 +1271,44 @@ const rxCorrection = ref('')
 const txCorrection = ref('')
 const trafficCalcType = ref('total')
 const copiedCmd = ref(false)
+
+const copyTextToClipboard = async (text) => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch (e) {
+      // Fall back to the textarea path below.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  document.execCommand('copy')
+  document.body.removeChild(textarea)
+}
+
+const copyServerNote = async (server) => {
+  const note = String(server?.note || '')
+  if (!note.trim()) return
+
+  try {
+    await copyTextToClipboard(note)
+    copiedNoteServerId.value = server.id
+    setTimeout(() => {
+      if (copiedNoteServerId.value === server.id) {
+        copiedNoteServerId.value = null
+      }
+    }, 1500)
+  } catch (e) {
+    console.error('[ERROR] Copy note failed:', e)
+  }
+}
 
 const handleLogin = async () => {
     loginError.value = ''
@@ -1489,7 +1545,6 @@ const loadSettings = async () => {
         is_public: settingsData.is_public === 'true',
         show_price: settingsData.show_price === 'true',
         show_expire: settingsData.show_expire === 'true',
-        show_bw: settingsData.show_bw === 'true',
         show_tf: settingsData.show_tf === 'true',
         show_time: settingsData.show_time === 'true',
         show_long_history: settingsData.show_long_history === 'true',
@@ -1585,7 +1640,6 @@ const saveSettings = async () => {
         is_public: settings.value.is_public ? 'true' : 'false',
         show_price: settings.value.show_price ? 'true' : 'false',
         show_expire: settings.value.show_expire ? 'true' : 'false',
-        show_bw: settings.value.show_bw ? 'true' : 'false',
         show_tf: settings.value.show_tf ? 'true' : 'false',
         show_time: settings.value.show_time ? 'true' : 'false',
         show_long_history: settings.value.show_long_history ? 'true' : 'false',
@@ -1799,9 +1853,10 @@ const openEditModal = (server) => {
     id: server.id,
     name: server.name || '',
     server_group: server.server_group || '',
+    tags: server.tags || '',
+    note: server.note || '',
     price: server.price || '',
     expire_date: server.expire_date || '',
-    bandwidth: server.bandwidth || '',
     traffic_limit: server.traffic_limit || '',
     traffic_calc_type: server.traffic_calc_type || 'total',
     reset_day: server.reset_day ?? 1,
@@ -1831,9 +1886,10 @@ const saveEdit = async () => {
       id: editForm.value.id,
       name: editForm.value.name,
       server_group: editForm.value.server_group,
+      tags: editForm.value.tags,
+      note: editForm.value.note,
       price: editForm.value.price,
       expire_date: editForm.value.expire_date,
-      bandwidth: editForm.value.bandwidth,
       traffic_limit: editForm.value.traffic_limit,
       traffic_calc_type: editForm.value.traffic_calc_type,
       reset_day: editForm.value.reset_day,

@@ -261,6 +261,7 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null)
         
         item.is_online = isOnline;
         if (!item.region) item.region = server.region || '';
+        delete item.bandwidth;
 
         if (isOnline) {
           stats.online++;
@@ -342,7 +343,7 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null)
       }
 
       const APPEARANCE_FIELDS = ['site_title', 'custom_bg', 'custom_head', 'custom_script'];
-      const SITE_FIELDS = ['is_public', 'show_price', 'show_expire', 'show_bw', 'show_tf', 'show_time', 'show_long_history', 'tg_notify', 'tg_bot_token', 'tg_chat_id', 'turnstile_enabled', 'turnstile_login_enabled', 'turnstile_site_key', 'turnstile_secret_key', 'jwt_secret', 'username', 'password', 'cloudflare_account_id', 'cloudflare_token', 'custom_ct', 'custom_cu', 'custom_cm', 'custom_bd', 'expire_reminder'];
+      const SITE_FIELDS = ['is_public', 'show_price', 'show_expire', 'show_tf', 'show_time', 'show_long_history', 'tg_notify', 'tg_bot_token', 'tg_chat_id', 'turnstile_enabled', 'turnstile_login_enabled', 'turnstile_site_key', 'turnstile_secret_key', 'jwt_secret', 'username', 'password', 'cloudflare_account_id', 'cloudflare_token', 'custom_ct', 'custom_cu', 'custom_cm', 'custom_bd', 'expire_reminder'];
 
       const appearanceOptions = {};
       for (const field of APPEARANCE_FIELDS) {
@@ -438,7 +439,7 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null)
       });
     }
     else if (data.action === 'edit') {
-      const { id, name, server_group, price, expire_date, bandwidth, traffic_limit, traffic_calc_type, reset_day, collect_interval, report_interval, ping_mode, custom_ct, custom_cu, custom_cm, custom_bd, rx_correction, tx_correction, offline_notify_disabled, is_hidden } = data;
+      const { id, name, server_group, tags, note, price, expire_date, traffic_limit, traffic_calc_type, reset_day, collect_interval, report_interval, ping_mode, custom_ct, custom_cu, custom_cm, custom_bd, rx_correction, tx_correction, offline_notify_disabled, is_hidden } = data;
       if (!id || !isValidUUID(id)) {
         return createBadRequestResponse('invalidServerId');
       }
@@ -461,6 +462,13 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null)
       const safeCustomCu = sanitizePing(custom_cu);
       const safeCustomCm = sanitizePing(custom_cm);
       const safeCustomBd = sanitizePing(custom_bd);
+      const safeTags = String(tags || '')
+        .split(',')
+        .map(tag => tag.trim().replace(/[^\p{L}\p{N} ._\-]/gu, '').slice(0, 32))
+        .filter(Boolean)
+        .slice(0, 12)
+        .join(',');
+      const safeNote = String(note || '').trim().slice(0, 500);
 
       const toNullCorrection = (v) => {
         if (v === null || v === undefined || v === '') return null;
@@ -475,14 +483,15 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null)
       try {
         await env.DB.prepare(`
           UPDATE servers
-          SET name = ?, server_group = ?, price = ?, expire_date = ?, bandwidth = ?, traffic_limit = ?, traffic_calc_type = ?, reset_day = ?, collect_interval = ?, report_interval = ?, ping_mode = ?, custom_ct = ?, custom_cu = ?, custom_cm = ?, custom_bd = ?, rx_correction = ?, tx_correction = ?, offline_notify_disabled = ?, is_hidden = ?
+          SET name = ?, server_group = ?, tags = ?, note = ?, price = ?, expire_date = ?, traffic_limit = ?, traffic_calc_type = ?, reset_day = ?, collect_interval = ?, report_interval = ?, ping_mode = ?, custom_ct = ?, custom_cu = ?, custom_cm = ?, custom_bd = ?, rx_correction = ?, tx_correction = ?, offline_notify_disabled = ?, is_hidden = ?
           WHERE id = ?
         `).bind(
           name || '',
           server_group || 'Default',
+          safeTags,
+          safeNote,
           price || '',
           expire_date || '',
-          bandwidth || '',
           traffic_limit || '',
           traffic_calc_type || 'total',
           normalizedAgentConfig.reset_day,

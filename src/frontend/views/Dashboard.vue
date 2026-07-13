@@ -230,7 +230,6 @@ const unknownStats = ref(0)
 const sysConfig = ref({
   show_price: true,
   show_expire: true,
-  show_bw: true,
   show_tf: true,
   show_time: true,
   site_title: DEFAULT_SITE_TITLE
@@ -591,7 +590,6 @@ const refreshData = async () => {
         sysConfig.value = {
           show_price: data.sysConfig?.show_price ?? true,
           show_expire: data.sysConfig?.show_expire ?? true,
-          show_bw: data.sysConfig?.show_bw ?? true,
           show_tf: data.sysConfig?.show_tf ?? true,
           show_time: data.sysConfig?.show_time ?? true,
           site_title: sysConfig.value.site_title || DEFAULT_SITE_TITLE
@@ -625,7 +623,6 @@ const refreshData = async () => {
     sysConfig.value = {
       show_price: data.sysConfig?.show_price ?? true,
       show_expire: data.sysConfig?.show_expire ?? true,
-      show_bw: data.sysConfig?.show_bw ?? true,
       show_tf: data.sysConfig?.show_tf ?? true,
       show_time: data.sysConfig?.show_time ?? true,
       site_title: sysConfig.value.site_title || DEFAULT_SITE_TITLE
