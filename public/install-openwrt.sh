@@ -919,6 +919,14 @@ get_packet_loss() {
         return
     fi
 
+    # 优先使用 ICMP ping 测量真实丢包率
+    if command -v ping >/dev/null 2>&1; then
+        received=$(ping -c "$count" -W 2 "$host" 2>/dev/null | grep -c "icmp_seq")
+        echo $(( (count - received) * 100 / count ))
+        return
+    fi
+
+    # fallback: HTTP/TCP 连通性检测
     ok=0
     i=1
     while [ "$i" -le "$count" ]; do
